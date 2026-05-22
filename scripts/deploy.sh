@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# scripts/deploy.sh
-# Pulls latest code and binary from GitHub, deploys to LXC.
 set -euo pipefail
 
 REPO_DIR="/home/sites/provisioning.snorp.dev"
 DEPLOY_DIR="/opt/provisioner"
+SERVE_ROOT="/var/www/html"
+IPXE_DIR="/opt/ipxe/src"
 GITHUB_REPO="sn0rp/provisioning.snorp.dev"
 LOG="/var/log/provisioner-deploy.log"
 
@@ -34,7 +34,6 @@ NEW_HASH=$(sha256sum /tmp/provisioner-new | cut -d' ' -f1)
 
 if [ "$CURRENT_HASH" != "$NEW_HASH" ]; then
   log "Binary changed, deploying..."
-  mkdir -p "$DEPLOY_DIR"
   mv /tmp/provisioner-new "$DEPLOY_DIR/provisioner"
   chmod +x "$DEPLOY_DIR/provisioner"
   systemctl restart provisioner
@@ -42,6 +41,26 @@ if [ "$CURRENT_HASH" != "$NEW_HASH" ]; then
 else
   rm /tmp/provisioner-new
   log "Binary unchanged."
+fi
+
+# Rebuild iPXE bootloaders if boot.ipxe changed
+IPXE_SCRIPT="$REPO_DIR/boot/boot.ipxe"
+IPXE_HASH_FILE="/opt/.boot_ipxe.sha256"
+CURRENT_IPXE_HASH=""
+[ -f "$IPXE_HASH_FILE" ] && CURRENT_IPXE_HASH=$(cat "$IPXE_HASH_FILE")
+NEW_IPXE_HASH=$(sha256sum "$IPXE_SCRIPT" | cut -d' ' -f1)
+
+if [ "$CURRENT_IPXE_HASH" != "$NEW_IPXE_HASH" ]; then
+  log "boot.ipxe changed, rebuilding iPXE bootloaders..."
+  cd "$IPXE_DIR"
+  make bin/undionly.kpxe EMBED="$IPXE_SCRIPT" 2>&1 | tee -a "$LOG"
+  make bin-x86_64-efi/ipxe.efi EMBED="$IPXE_SCRIPT" 2>&1 | tee -a "$LOG"
+  cp bin/undionly.kpxe "$SERVE_ROOT/netboot.xyz.kpxe"
+  cp bin-x86_64-efi/ipxe.efi "$SERVE_ROOT/netboot.xyz.efi"
+  echo "$NEW_IPXE_HASH" > "$IPXE_HASH_FILE"
+  log "iPXE bootloaders rebuilt and deployed."
+else
+  log "boot.ipxe unchanged, skipping rebuild."
 fi
 
 log "=== deploy complete ==="
