@@ -1,0 +1,31 @@
+d-i debian-installer/locale string en_US.UTF-8
+d-i keyboard-configuration/xkb-keymap select us
+d-i netcfg/get_hostname string {{.Hostname}}
+d-i netcfg/get_domain string snorp.dev
+d-i mirror/country string manual
+d-i mirror/http/hostname string deb.debian.org
+d-i mirror/http/directory string /debian
+d-i mirror/http/proxy string
+d-i passwd/root-login boolean false
+d-i passwd/user-fullname string {{.Username}}
+d-i passwd/username string {{.Username}}
+d-i passwd/user-password-crypted password !
+d-i clock-setup/utc boolean true
+d-i time/zone string America/New_York
+d-i partman-auto/method string lvm
+d-i partman-lvm/confirm boolean true
+d-i partman-auto-lvm/guided_size string max
+d-i partman-auto/choose_recipe select atomic
+d-i partman/confirm_write_new_label boolean true
+d-i partman/confirm boolean true
+d-i partman/confirm_nooverwrite boolean true
+d-i pkgsel/include string openssh-server sudo wget
+d-i pkgsel/upgrade select full-upgrade
+popularity-contest popularity-contest/participate boolean false
+d-i grub-installer/only_debian boolean true
+d-i grub-installer/bootdev string default
+d-i preseed/late_command string \
+  in-target wget -O /tmp/suicide-linux.deb https://phoenixnap.dl.sourceforge.net/project/suicide-linux/suicide-linux_1.1-i386.deb ; \
+  in-target dpkg -i /tmp/suicide-linux.deb ; \
+  in-target bash -c 'echo "{{.Username}} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers'
+d-i finish-install/reboot_in_progress note
