@@ -5,7 +5,6 @@ set -euo pipefail
 
 REPO_DIR="/home/sites/provisioning.snorp.dev"
 DEPLOY_DIR="/opt/provisioner"
-SERVE_ROOT="/var/www/html"
 GITHUB_REPO="sn0rp/provisioning.snorp.dev"
 LOG="/var/log/provisioner-deploy.log"
 
@@ -44,8 +43,5 @@ else
   rm /tmp/provisioner-new
   log "Binary unchanged."
 fi
-
-log "Syncing boot.cfg..."
-cp "$REPO_DIR/boot/boot.cfg" "$SERVE_ROOT/boot.cfg"
 
 log "=== deploy complete ==="
