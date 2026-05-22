@@ -13,15 +13,15 @@ log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG"; }
 log "=== deploy started ==="
 
 cd "$REPO_DIR"
-git fetch origin main
+git fetch origin master
 LOCAL=$(git rev-parse HEAD)
-REMOTE=$(git rev-parse origin/main)
+REMOTE=$(git rev-parse origin/master)
 
 if [ "$LOCAL" = "$REMOTE" ]; then
   log "No code changes."
 else
   log "Pulling code changes..."
-  git pull origin main
+  git pull origin master
 fi
 
 LATEST_URL="https://github.com/${GITHUB_REPO}/releases/latest/download/provisioner-linux-amd64"
