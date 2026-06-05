@@ -127,6 +127,16 @@ run dban && {
   fi
 }
 
+run proxmox && {
+  ISO="/tmp/proxmox-update.iso"
+  fetch "Proxmox VE ISO" "$ISO" \
+    "https://enterprise.proxmox.com/iso/proxmox-ve_9.2-1.iso"
+  mkdir -p "$NB_DIR/proxmox"
+  extract "Proxmox linux26" "$ISO" "$NB_DIR/proxmox" "boot/linux26"
+  extract "Proxmox initrd"  "$ISO" "$NB_DIR/proxmox" "boot/initrd.img"
+  rm -f "$ISO"
+}
+
 run nixos && log "NixOS: chains to netboot.nixos.org, no local files needed"
 
 log "=== update complete ==="
