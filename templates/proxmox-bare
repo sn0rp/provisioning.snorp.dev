@@ -1,0 +1,15 @@
+[global]
+keyboard = en-us
+country = us
+fqdn = proxmox.snorp.dev
+mailto = hostadmin@snorp.dev
+timezone = America/New_York
+root_password = ChangeMe123!
+reboot_on_error = false
+
+[network]
+source = from-dhcp
+
+[disk-setup]
+filesystem = ext4
+disk_list = nvme0n1

@@ -1,0 +1,127 @@
+#!/bin/bash
+# Full homelab bootstrap - runs on first boot after Proxmox install
+# Either triggered by [first-boot] in answer file, or run manually:
+#   curl http://192.168.8.180:8080/config/proxmox-homelab-firstboot | bash
+set -euo pipefail
+
+LOG=/var/log/homelab-bootstrap.log
+exec > >(tee -a "$LOG") 2>&1
+
+echo "=== homelab bootstrap started $(date) ==="
+
+# Ensure network is up
+sleep 15
+apt-get update -qq
+
+# Install base requirements
+apt-get install -y -qq git make unzip curl wget python3 python3-pip
+pip3 install ansible --break-system-packages
+
+# Install Terraform
+wget -q -O /tmp/tf.zip \
+  https://releases.hashicorp.com/terraform/1.9.0/terraform_1.9.0_linux_amd64.zip
+unzip -q /tmp/tf.zip -d /tmp/tf
+mv /tmp/tf/terraform /usr/local/bin/
+rm -rf /tmp/tf /tmp/tf.zip
+
+echo "=== Creating Terraform API token ==="
+pveum user token add root@pam terraform --privsep=0 2>/dev/null || true
+TOKEN_SECRET=$(pveum user token add root@pam terraform \
+  --privsep=0 --output-format json 2>/dev/null | \
+  python3 -c "import sys,json; print(json.load(sys.stdin).get('value',''))" || \
+  echo "RETRIEVE_MANUALLY")
+echo "Token secret: $TOKEN_SECRET"
+
+echo "=== Provisioning Technitium LXC (CT 100) ==="
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/technitiumdns.sh)" -- \
+  --ct-id 100 \
+  --hostname technitium.snorp.dev \
+  --disk 2 \
+  --ram 512 \
+  --cpu 1
+
+echo "=== Provisioning netboot.xyz LXC (CT 101) ==="
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/netboot-xyz.sh)" -- \
+  --ct-id 101 \
+  --hostname provisioning.snorp.dev \
+  --disk 64 \
+  --ram 512 \
+  --cpu 1
+
+echo "=== Cloning homelab repo ==="
+git clone https://github.com/sn0rp/homelab.git /root/homelab
+cd /root/homelab
+
+cat > terraform/terraform.tfvars << EOF
+proxmox_token_id = "root@pam!terraform"
+proxmox_node     = "proxmox"
+EOF
+
+echo ""
+echo "=============================================="
+echo " SECRETS REQUIRED - check your password manager"
+echo "=============================================="
+read -rsp "Vault password: " VAULT_PASS; echo
+read -rsp "Technitium admin password: " TECH_PASS; echo
+read -rsp "Provisioning LXC root password: " PROV_PASS; echo
+
+echo "$VAULT_PASS" > ansible/.vault_pass
+chmod 600 ansible/.vault_pass
+
+cat > /tmp/vault_plain.yml << VAULTEOF
+technitium_admin_password: "${TECH_PASS}"
+proxmox_token_secret: "${TOKEN_SECRET}"
+provisioning_root_password: "${PROV_PASS}"
+provisioning_deploy_key: |
+  # PLACEHOLDER - add after bootstrap:
+  # 1. ssh-keygen -t ed25519 -f /root/.ssh/provisioning_deploy -N ""
+  # 2. Add pub key to github.com/sn0rp/provisioning.snorp.dev -> Deploy keys
+  # 3. ansible-vault edit ansible/vault.yml --vault-password-file ansible/.vault_pass
+VAULTEOF
+
+ansible-vault encrypt /tmp/vault_plain.yml \
+  --vault-password-file ansible/.vault_pass \
+  --output ansible/vault.yml
+rm -f /tmp/vault_plain.yml
+
+echo "=== Initializing Terraform ==="
+cd terraform
+terraform init
+
+echo "=== Importing existing LXCs into Terraform state ==="
+terraform import \
+  -var="proxmox_token_secret=${TOKEN_SECRET}" \
+  -var="technitium_admin_password=${TECH_PASS}" \
+  -var="provisioning_root_password=${PROV_PASS}" \
+  proxmox_virtual_environment_container.technitium proxmox/100
+
+terraform import \
+  -var="proxmox_token_secret=${TOKEN_SECRET}" \
+  -var="technitium_admin_password=${TECH_PASS}" \
+  -var="provisioning_root_password=${PROV_PASS}" \
+  proxmox_virtual_environment_container.provisioning proxmox/101
+
+cd ..
+
+echo "=== Running Ansible to configure everything ==="
+make configure
+
+echo ""
+echo "=============================================="
+echo " Bootstrap complete!"
+echo ""
+echo " MANUAL STEPS REMAINING:"
+echo " 1. Fix router web UI DNS: DNS Server 1 = 192.168.8.104"
+echo " 2. Set Technitium admin password at https://technitium.snorp.dev:53443"
+echo "    (then update vault: ansible-vault edit ansible/vault.yml)"
+echo " 3. Add provisioning deploy key:"
+echo "    ssh-keygen -t ed25519 -f /root/.ssh/provisioning_deploy -N ''"
+echo "    cat /root/.ssh/provisioning_deploy.pub"
+echo "    -> Add to github.com/sn0rp/provisioning.snorp.dev -> Deploy keys"
+echo "    -> ansible-vault edit ansible/vault.yml --vault-password-file ansible/.vault_pass"
+echo " 4. Run: make configure"
+echo " 5. Download netboot ISOs on provisioning LXC:"
+echo "    pct exec 101 -- /home/sites/provisioning.snorp.dev/scripts/update-isos.sh all"
+echo "=============================================="
+echo ""
+echo "Full log: $LOG"
