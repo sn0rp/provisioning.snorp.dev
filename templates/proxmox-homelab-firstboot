@@ -32,21 +32,24 @@ TOKEN_SECRET=$(pveum user token add root@pam terraform \
   echo "RETRIEVE_MANUALLY")
 echo "Token secret: $TOKEN_SECRET"
 
-echo "=== Provisioning Technitium LXC (CT 100) ==="
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/technitiumdns.sh)" -- \
-  --ct-id 100 \
-  --hostname technitium.snorp.dev \
-  --disk 2 \
-  --ram 512 \
-  --cpu 1
+echo "=== Provisioning LXCs ==="
+echo "The community scripts require interactive input."
+echo "Please answer the prompts for each:"
+echo ""
+echo "Technitium DNS (use these values when prompted):"
+echo "  CT ID: 100, Hostname: technitium.snorp.dev"
+echo "  Disk: 2GB, RAM: 512MB, CPU: 1"
+echo ""
+read -rp "Press Enter to start Technitium install..."
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/technitiumdns.sh)"
 
-echo "=== Provisioning netboot.xyz LXC (CT 101) ==="
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/netboot-xyz.sh)" -- \
-  --ct-id 101 \
-  --hostname provisioning.snorp.dev \
-  --disk 64 \
-  --ram 512 \
-  --cpu 1
+echo ""
+echo "Provisioning/netboot.xyz (use these values when prompted):"
+echo "  CT ID: 101, Hostname: provisioning.snorp.dev"
+echo "  Disk: 64GB, RAM: 512MB, CPU: 1"
+echo ""
+read -rp "Press Enter to start netboot.xyz install..."
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/netboot-xyz.sh)"
 
 echo "=== Cloning homelab repo ==="
 git clone https://github.com/sn0rp/homelab.git /root/homelab
