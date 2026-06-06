@@ -1,0 +1,30 @@
+#cloud-config
+autoinstall:
+  version: 1
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+  identity:
+    hostname: openclaw.snorp.dev
+    username: snorp
+    password: "$6$.bVmc5kLhPEMBK94$0A3j28pBVZiIaNkHaYEI7HxCl/sKyHgnn2l3pTGpkYJOMnJq9cyC2FQoLHNp8QnYKZkHHVopwzlh2prGXqyKB1"
+  ssh:
+    install-server: true
+    authorized-keys: []
+    allow-pw: true
+  storage:
+    layout:
+      name: lvm
+  network:
+    network:
+      version: 2
+      ethernets:
+        ens18:
+          dhcp4: true
+  packages:
+    - openssh-server
+    - curl
+    - git
+  late-commands:
+    - curtin in-target --target=/target -- bash -c "echo 'snorp ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/snorp"
+    - curtin in-target --target=/target -- bash -c "curl -fsSL http://192.168.8.180:8080/config/openclaw-firstboot > /tmp/bootstrap.sh && bash /tmp/bootstrap.sh"
