@@ -19,8 +19,10 @@ autoinstall:
     network:
       version: 2
       ethernets:
-        ens18:
+        id0:
           dhcp4: true
+          match:
+            macaddress: "BC:24:11:AA:BB:CC"
   packages:
     - openssh-server
     - curl
