@@ -10,8 +10,9 @@ autoinstall:
     password: "$6$.bVmc5kLhPEMBK94$0A3j28pBVZiIaNkHaYEI7HxCl/sKyHgnn2l3pTGpkYJOMnJq9cyC2FQoLHNp8QnYKZkHHVopwzlh2prGXqyKB1"
   ssh:
     install-server: true
-    authorized-keys: []
-    allow-pw: true
+    authorized-keys:
+      - "AAAAC3NzaC1lZDI1NTE5AAAAIBlu03YyFoCLPJ3PXiKExB23PvQ8JbJeooXIddRKG3i/"
+    allow-pw: false
   storage:
     layout:
       name: lvm
@@ -22,11 +23,44 @@ autoinstall:
         id0:
           dhcp4: true
           match:
-            macaddress: "BC:24:11:AA:BB:CC"
+            macaddress: "BC:24:11:22:44:D2"
   packages:
     - openssh-server
     - curl
     - git
+    - wget
+    - unzip
+    - tmux
+    - htop
+    - rsync
+    - jq
+    - sqlite3
+    - nginx
+    - build-essential
+    - pkg-config
+    - ca-certificates
+    - gnupg
+    - lsb-release
+    - python3
+    - python3-pip
+    - python3-venv
+    - python3-dev
+    - software-properties-common
   late-commands:
-    - curtin in-target --target=/target -- bash -c "echo 'snorp ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/snorp"
-    - curtin in-target --target=/target -- bash -c "curl -fsSL http://192.168.8.180:8080/config/openclaw-firstboot > /tmp/bootstrap.sh && bash /tmp/bootstrap.sh"
+    - curtin in-target --target=/target -- bash -c "echo 'snorp ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/snorp && chmod 440 /etc/sudoers.d/snorp"
+    - curtin in-target --target=/target -- bash -c "cat > /etc/systemd/system/openclaw-bootstrap-notify.service << 'EOF'
+[Unit]
+Description=OpenClaw bootstrap ready notification
+After=network-online.target ssh.service
+Wants=network-online.target
+ConditionPathExists=!/etc/openclaw-bootstrap-done
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'wall \"OpenClaw VM ready. Run: make configure-openclaw from your homelab workstation.\"'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable openclaw-bootstrap-notify.service"
