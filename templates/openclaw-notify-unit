@@ -1,0 +1,13 @@
+[Unit]
+Description=OpenClaw bootstrap ready notification
+After=network-online.target ssh.service
+Wants=network-online.target
+ConditionPathExists=!/etc/openclaw-bootstrap-done
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'wall "OpenClaw VM ready. Run: make configure-openclaw from your homelab workstation."'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

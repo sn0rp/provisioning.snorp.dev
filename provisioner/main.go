@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 )
 
@@ -20,11 +21,32 @@ type Params struct {
 }
 
 func configHandler(w http.ResponseWriter, r *http.Request) {
-	distro := filepath.Base(r.URL.Path)
-	if distro == "" || distro == "config" {
-		http.Error(w, "usage: /config/{distro}?hostname=x&username=y&sshkey=z", http.StatusBadRequest)
+	path := strings.TrimPrefix(r.URL.Path, "/config/")
+	path = strings.Trim(path, "/")
+
+	if path == "" {
+		http.Error(w, "usage: /config/{distro}", http.StatusBadRequest)
 		return
 	}
+
+	var distro string
+	var serveMetaData bool
+
+	if strings.HasSuffix(path, "/user-data") {
+		distro = strings.TrimSuffix(path, "/user-data")
+		serveMetaData = false
+	} else if strings.HasSuffix(path, "/meta-data") {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Write([]byte("instance-id: openclaw\nlocal-hostname: openclaw\n"))
+		return
+	} else {
+		distro = path
+		serveMetaData = false
+	}
+
+	_ = serveMetaData
+
+	distro = filepath.Base(distro)
 
 	tmplPath := filepath.Join(templateDir, distro)
 	if _, err := os.Stat(tmplPath); os.IsNotExist(err) {

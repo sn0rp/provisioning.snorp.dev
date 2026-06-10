@@ -11,7 +11,7 @@ autoinstall:
   ssh:
     install-server: true
     authorized-keys:
-      - "AAAAC3NzaC1lZDI1NTE5AAAAIBlu03YyFoCLPJ3PXiKExB23PvQ8JbJeooXIddRKG3i/"
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBlu03YyFoCLPJ3PXiKExB23PvQ8JbJeooXIddRKG3i/"
     allow-pw: false
   storage:
     layout:
@@ -48,19 +48,5 @@ autoinstall:
     - software-properties-common
   late-commands:
     - curtin in-target --target=/target -- bash -c "echo 'snorp ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/snorp && chmod 440 /etc/sudoers.d/snorp"
-    - curtin in-target --target=/target -- bash -c "cat > /etc/systemd/system/openclaw-bootstrap-notify.service << 'EOF'
-[Unit]
-Description=OpenClaw bootstrap ready notification
-After=network-online.target ssh.service
-Wants=network-online.target
-ConditionPathExists=!/etc/openclaw-bootstrap-done
-
-[Service]
-Type=oneshot
-ExecStart=/bin/bash -c 'wall \"OpenClaw VM ready. Run: make configure-openclaw from your homelab workstation.\"'
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOF
-systemctl enable openclaw-bootstrap-notify.service"
+    - curtin in-target --target=/target -- curl -fsSL http://192.168.8.180:8080/config/openclaw-notify-unit -o /etc/systemd/system/openclaw-bootstrap-notify.service
+    - curtin in-target --target=/target -- systemctl enable openclaw-bootstrap-notify.service
